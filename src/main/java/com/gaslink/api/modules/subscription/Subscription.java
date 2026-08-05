@@ -1,6 +1,8 @@
 package com.gaslink.api.modules.subscription;
 
 import com.gaslink.api.shared.audit.AuditableEntity;
+import com.gaslink.api.shared.enums.BillingCycle;
+import com.gaslink.api.shared.enums.SubscriptionPlan;
 import com.gaslink.api.shared.enums.SubscriptionStatus;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -10,23 +12,28 @@ import java.util.UUID;
 @Entity
 @Table(name = "subscriptions")
 public class Subscription extends AuditableEntity {
+
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "uuid")
     private UUID id;
 
     @Column(name = "vendor_id", nullable = false)
     private UUID vendorId;
 
-    private String plan;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "plan", nullable = false)
+    private SubscriptionPlan plan = SubscriptionPlan.BASIC;
 
     @Column(precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "billing_cycle")
-    private String billingCycle;
+    private BillingCycle billingCycle = BillingCycle.MONTHLY;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private SubscriptionStatus status = SubscriptionStatus.ACTIVE;
 
     @Column(name = "started_at")
@@ -39,8 +46,8 @@ public class Subscription extends AuditableEntity {
     public Subscription() {}
 
     // All args constructor
-    public Subscription(UUID id, UUID vendorId, String plan, BigDecimal amount,
-                        String billingCycle, SubscriptionStatus status,
+    public Subscription(UUID id, UUID vendorId, SubscriptionPlan plan, BigDecimal amount,
+                        BillingCycle billingCycle, SubscriptionStatus status,
                         Instant startedAt, Instant expiresAt) {
         this.id = id;
         this.vendorId = vendorId;
@@ -60,9 +67,9 @@ public class Subscription extends AuditableEntity {
     public static class SubscriptionBuilder {
         private UUID id;
         private UUID vendorId;
-        private String plan;
+        private SubscriptionPlan plan = SubscriptionPlan.BASIC;
         private BigDecimal amount;
-        private String billingCycle;
+        private BillingCycle billingCycle = BillingCycle.MONTHLY;
         private SubscriptionStatus status = SubscriptionStatus.ACTIVE;
         private Instant startedAt;
         private Instant expiresAt;
@@ -77,7 +84,7 @@ public class Subscription extends AuditableEntity {
             return this;
         }
 
-        public SubscriptionBuilder plan(String plan) {
+        public SubscriptionBuilder plan(SubscriptionPlan plan) {
             this.plan = plan;
             return this;
         }
@@ -87,7 +94,7 @@ public class Subscription extends AuditableEntity {
             return this;
         }
 
-        public SubscriptionBuilder billingCycle(String billingCycle) {
+        public SubscriptionBuilder billingCycle(BillingCycle billingCycle) {
             this.billingCycle = billingCycle;
             return this;
         }
@@ -130,11 +137,11 @@ public class Subscription extends AuditableEntity {
         this.vendorId = vendorId;
     }
 
-    public String getPlan() {
+    public SubscriptionPlan getPlan() {
         return plan;
     }
 
-    public void setPlan(String plan) {
+    public void setPlan(SubscriptionPlan plan) {
         this.plan = plan;
     }
 
@@ -146,11 +153,11 @@ public class Subscription extends AuditableEntity {
         this.amount = amount;
     }
 
-    public String getBillingCycle() {
+    public BillingCycle getBillingCycle() {
         return billingCycle;
     }
 
-    public void setBillingCycle(String billingCycle) {
+    public void setBillingCycle(BillingCycle billingCycle) {
         this.billingCycle = billingCycle;
     }
 
@@ -178,12 +185,10 @@ public class Subscription extends AuditableEntity {
         this.expiresAt = expiresAt;
     }
 
-    // equals and hashCode
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         Subscription that = (Subscription) o;
         return id != null ? id.equals(that.id) : that.id == null;
     }
@@ -198,14 +203,12 @@ public class Subscription extends AuditableEntity {
         return "Subscription{" +
                 "id=" + id +
                 ", vendorId=" + vendorId +
-                ", plan='" + plan + '\'' +
+                ", plan=" + plan +
                 ", amount=" + amount +
-                ", billingCycle='" + billingCycle + '\'' +
+                ", billingCycle=" + billingCycle +
                 ", status=" + status +
                 ", startedAt=" + startedAt +
                 ", expiresAt=" + expiresAt +
-                ", createdAt=" + getCreatedAt() +
-                ", updatedAt=" + getUpdatedAt() +
                 '}';
     }
 }

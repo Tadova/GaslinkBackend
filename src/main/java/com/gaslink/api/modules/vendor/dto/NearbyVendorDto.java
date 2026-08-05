@@ -14,10 +14,6 @@ public class NearbyVendorDto {
     private BigDecimal lowestPrice;
     private boolean isOpen;
 
-    // Default constructor
-    public NearbyVendorDto() {}
-
-    // All args constructor
     public NearbyVendorDto(UUID id, String businessName, Double lat, Double lng,
                            BigDecimal rating, int totalReviews, double distanceKm,
                            BigDecimal lowestPrice, boolean isOpen) {

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome as Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: #f6f9fc;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 { color: #ffffff; font-size: 32px; font-weight: 700; }
+        .header p { color: rgba(255, 255, 255, 0.9); font-size: 16px; margin-top: 8px; }
+        .content { padding: 40px 30px; }
+        .content h2 { color: #1f2937; font-size: 22px; margin-bottom: 16px; }
+        .content p { color: #4b5563; line-height: 1.6; margin-bottom: 16px; }
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid #2563eb;
+            padding: 16px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .info-box p { margin: 4px 0; color: #1e40af; }
+        .button-container { text-align: center; margin: 30px 0; }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff !important;
+            padding: 16px 48px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+        .credentials {
+            background: #f3f4f6;
+            padding: 16px;
+            border-radius: 6px;
+            margin: 16px 0;
+            font-family: monospace;
+            font-size: 14px;
+            color: #1f2937;
+        }
+        .warning {
+            color: #dc2626;
+            font-size: 14px;
+            padding: 12px;
+            background: #fef2f2;
+            border-radius: 6px;
+            margin-top: 12px;
+        }
+        .footer {
+            background: #f9fafb;
+            padding: 20px 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer p { color: #6b7280; font-size: 14px; }
+        .footer a { color: #2563eb; text-decoration: none; }
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            background: #f9fafb;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            color: #1f2937;
+        }
+        @media (max-width: 600px) {
+            .content { padding: 20px; }
+            .header { padding: 30px 20px; }
+            .features { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>👑 Welcome as Admin!</h1>
+        <p>You've been granted Admin access to GasLink</p>
+    </div>
+
+    <div class="content">
+        <h2>Hello, <span th:text="${fullName}">Admin</span>!</h2>
+
+        <p>You have been granted <strong>Admin</strong> access to the GasLink platform. Before you can start managing the platform, you need to set up your password.</p>
+
+        <div class="info-box">
+            <p>📧 <strong>Your Admin email:</strong> <span th:text="${email}">email@example.com</span></p>
+            <p>🔑 <strong>Temporary Password:</strong> <span th:text="${tempPassword}">password</span></p>
+            <p>⏰ This link will expire in <strong th:text="${expiryMinutes}">30</strong> minutes.</p>
+        </div>
+
+        <div class="button-container">
+            <a th:href="${setupLink}" class="button">Set Up Your Password</a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px;">
+            Or copy and paste this URL into your browser:
+        </p>
+        <div class="credentials" th:text="${setupLink}">https://example.com/setup</div>
+
+        <h3 style="color: #1f2937; margin-top: 24px; margin-bottom: 12px;">Your Admin Capabilities:</h3>
+
+        <div class="features">
+            <div class="feature-item">👥 View Vendors</div>
+            <div class="feature-item">✅ Verify Vendors</div>
+            <div class="feature-item">🔒 Manage Users</div>
+            <div class="feature-item">📊 View Analytics</div>
+            <div class="feature-item">📋 Manage Orders</div>
+            <div class="feature-item">📧 Send Notifications</div>
+        </div>
+
+        <div class="warning">
+            ⚠️ This link is for one-time use only. Once you set your password, this link will expire.
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>© <span th:text="${year}">2026</span> GasLink. All rights reserved.</p>
+        <p>Need help? Contact us at <a href="mailto:support@gaslink.com">support@gaslink.com</a></p>
+    </div>
+</div>
+</body>
+</html>

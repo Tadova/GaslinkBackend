@@ -52,10 +52,6 @@ public class Vendor extends AuditableEntity {
     @Column(name = "total_reviews")
     private int totalReviews = 0;
 
-    // Default constructor
-    public Vendor() {}
-
-    // All args constructor
     public Vendor(UUID id, String businessName, String businessAddress, String nin,
                   Double lat, Double lng, Double serviceRadiusKm,
                   VerificationStatus verificationStatus, VendorAccountStatus accountStatus,

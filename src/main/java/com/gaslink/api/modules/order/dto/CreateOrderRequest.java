@@ -1,84 +1,49 @@
 package com.gaslink.api.modules.order.dto;
-import com.gaslink.api.shared.enums.*;
-import jakarta.validation.constraints.*;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import java.time.Instant;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
 import java.util.UUID;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "Request to create a new order")
 public class CreateOrderRequest {
-    @NotNull private UUID vendorId;
-    @NotNull private ServiceType serviceType;
-    @NotNull @DecimalMin("1") private Double cylinderSizeKg;
-    @Min(1) private int qty = 1;
-    @NotNull private Double deliveryLat;
 
-    public @NotNull UUID getVendorId() {
-        return vendorId;
-    }
+    @NotNull(message = "Vendor ID is required")
+    @Schema(description = "Vendor ID", required = true)
+    private UUID vendorId;
 
-    public void setVendorId(@NotNull UUID vendorId) {
-        this.vendorId = vendorId;
-    }
+    @Schema(description = "Delivery address")
+    private String deliveryAddress;
 
-    public @NotNull ServiceType getServiceType() {
-        return serviceType;
-    }
+    @NotNull(message = "Customer latitude is required")
+    @Schema(description = "Customer latitude", required = true, example = "6.5244")
+    private Double customerLat;
 
-    public void setServiceType(@NotNull ServiceType serviceType) {
-        this.serviceType = serviceType;
-    }
+    @NotNull(message = "Customer longitude is required")
+    @Schema(description = "Customer longitude", required = true, example = "3.3792")
+    private Double customerLng;
 
-    public @NotNull @DecimalMin("1") Double getCylinderSizeKg() {
-        return cylinderSizeKg;
-    }
+    @Schema(description = "Delivery notes")
+    private String deliveryNotes;
 
-    public void setCylinderSizeKg(@NotNull @DecimalMin("1") Double cylinderSizeKg) {
-        this.cylinderSizeKg = cylinderSizeKg;
-    }
+    @Schema(description = "Gas order details (for gas orders)")
+    private GasOrderRequest gasOrder;
 
-    @Min(1)
-    public int getQty() {
-        return qty;
-    }
+    @Schema(description = "Product order items (for regular products)")
+    private List<OrderItemRequest> items;
 
-    public void setQty(@Min(1) int qty) {
-        this.qty = qty;
-    }
+    @Schema(description = "Payment method", example = "CARD")
+    private String paymentMethod;
 
-    public @NotNull Double getDeliveryLat() {
-        return deliveryLat;
-    }
-
-    public void setDeliveryLat(@NotNull Double deliveryLat) {
-        this.deliveryLat = deliveryLat;
-    }
-
-    public @NotNull Double getDeliveryLng() {
-        return deliveryLng;
-    }
-
-    public void setDeliveryLng(@NotNull Double deliveryLng) {
-        this.deliveryLng = deliveryLng;
-    }
-
-    public @NotNull PaymentMethod getPaymentMethod() {
-        return paymentMethod;
-    }
-
-    public void setPaymentMethod(@NotNull PaymentMethod paymentMethod) {
-        this.paymentMethod = paymentMethod;
-    }
-
-    public Instant getScheduledAt() {
-        return scheduledAt;
-    }
-
-    public void setScheduledAt(Instant scheduledAt) {
-        this.scheduledAt = scheduledAt;
-    }
-
-    @NotNull private Double deliveryLng;
-    @NotNull private PaymentMethod paymentMethod;
-    private Instant scheduledAt;
+    @Schema(description = "Payment callback URL")
+    private String callbackUrl;
 }

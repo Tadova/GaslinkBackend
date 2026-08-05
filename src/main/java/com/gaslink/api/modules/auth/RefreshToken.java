@@ -7,7 +7,6 @@ import java.util.UUID;
 
 @Entity @Table(name = "refresh_tokens")
 @Data
-//@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)

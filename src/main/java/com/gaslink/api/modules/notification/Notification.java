@@ -1,44 +1,52 @@
 package com.gaslink.api.modules.notification;
 
+import com.gaslink.api.shared.audit.AuditableEntity;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "notifications")
-@EntityListeners(AuditingEntityListener.class)
-public class Notification {
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Notification extends AuditableEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid")
     private UUID id;
 
+    @Column(name = "user_id", nullable = false)
     private UUID userId;
-    private String type;
+
+    @Column(name = "type", nullable = false)
+    private String type; // ORDER, MESSAGE, SUBSCRIPTION, PROMOTION, SYSTEM
+
+    @Column(name = "title", nullable = false)
     private String title;
+
+    @Column(name = "body", nullable = false, columnDefinition = "TEXT")
     private String body;
-    private boolean isRead;
 
-    @CreatedDate
-    private Instant createdAt;
+    @Column(name = "is_read")
+    private boolean isRead = false;
 
-    public Notification() {} // Manual Constructor
+    @Column(name = "read_at")
+    private Instant readAt;
 
-    // MANUAL GETTERS
-    public UUID getId() { return id; }
-    public UUID getUserId() { return userId; }
-    public String getType() { return type; }
-    public String getTitle() { return title; }
-    public String getBody() { return body; }
-    public boolean isRead() { return isRead; }
-    public Instant getCreatedAt() { return createdAt; }
+    @Column(name = "deep_link")
+    private String deepLink; // e.g., gaslink://order/123
 
-    // MANUAL SETTERS
-    public void setId(UUID id) { this.id = id; }
-    public void setUserId(UUID userId) { this.userId = userId; }
-    public void setType(String type) { this.type = type; }
-    public void setTitle(String title) { this.title = title; }
-    public void setBody(String body) { this.body = body; }
-    public void setRead(boolean read) { isRead = read; }
+    @Column(name = "action_data", columnDefinition = "TEXT")
+    private String actionData; // JSON data for actions
+
+    @Column(name = "image_url")
+    private String imageUrl;
 }

@@ -1,160 +1,65 @@
 package com.gaslink.api.modules.subscription.dto;
 
 import com.gaslink.api.shared.enums.SubscriptionStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "Subscription details response")
 public class SubscriptionDto {
+
+    @Schema(description = "Subscription unique identifier", example = "sub_550e8400-e29b-41d4-a716-446655440000")
     private UUID id;
+
+    @Schema(description = "Vendor unique identifier", example = "550e8400-e29b-41d4-a716-446655440000")
     private UUID vendorId;
+
+    @Schema(
+            description = "Subscription plan name",
+            allowableValues = {"FREE_TRIAL", "BASIC", "PREMIUM"},
+            example = "PREMIUM"
+    )
     private String plan;
+
+    @Schema(
+            description = "Subscription amount in NGN",
+            example = "5000.00"
+    )
     private BigDecimal amount;
+
+    @Schema(
+            description = "Billing cycle",
+            allowableValues = {"MONTHLY", "ANNUAL"},
+            example = "MONTHLY"
+    )
     private String billingCycle;
+
+    @Schema(
+            description = "Current subscription status",
+            allowableValues = {"ACTIVE", "EXPIRED", "CANCELLED", "PENDING", "FREE_TRIAL"},
+            example = "ACTIVE"
+    )
     private SubscriptionStatus status;
+
+    @Schema(
+            description = "Subscription start date (ISO 8601)",
+            example = "2026-08-05T10:00:00Z"
+    )
     private Instant startedAt;
+
+    @Schema(
+            description = "Subscription expiry date (ISO 8601)",
+            example = "2026-09-05T10:00:00Z"
+    )
     private Instant expiresAt;
-
-    // Default constructor
-    public SubscriptionDto() {}
-
-    // All args constructor
-    public SubscriptionDto(UUID id, UUID vendorId, String plan, BigDecimal amount,
-                           String billingCycle, SubscriptionStatus status,
-                           Instant startedAt, Instant expiresAt) {
-        this.id = id;
-        this.vendorId = vendorId;
-        this.plan = plan;
-        this.amount = amount;
-        this.billingCycle = billingCycle;
-        this.status = status;
-        this.startedAt = startedAt;
-        this.expiresAt = expiresAt;
-    }
-
-    // Builder pattern
-    public static SubscriptionDtoBuilder builder() {
-        return new SubscriptionDtoBuilder();
-    }
-
-    public static class SubscriptionDtoBuilder {
-        private UUID id;
-        private UUID vendorId;
-        private String plan;
-        private BigDecimal amount;
-        private String billingCycle;
-        private SubscriptionStatus status;
-        private Instant startedAt;
-        private Instant expiresAt;
-
-        public SubscriptionDtoBuilder id(UUID id) {
-            this.id = id;
-            return this;
-        }
-
-        public SubscriptionDtoBuilder vendorId(UUID vendorId) {
-            this.vendorId = vendorId;
-            return this;
-        }
-
-        public SubscriptionDtoBuilder plan(String plan) {
-            this.plan = plan;
-            return this;
-        }
-
-        public SubscriptionDtoBuilder amount(BigDecimal amount) {
-            this.amount = amount;
-            return this;
-        }
-
-        public SubscriptionDtoBuilder billingCycle(String billingCycle) {
-            this.billingCycle = billingCycle;
-            return this;
-        }
-
-        public SubscriptionDtoBuilder status(SubscriptionStatus status) {
-            this.status = status;
-            return this;
-        }
-
-        public SubscriptionDtoBuilder startedAt(Instant startedAt) {
-            this.startedAt = startedAt;
-            return this;
-        }
-
-        public SubscriptionDtoBuilder expiresAt(Instant expiresAt) {
-            this.expiresAt = expiresAt;
-            return this;
-        }
-
-        public SubscriptionDto build() {
-            return new SubscriptionDto(id, vendorId, plan, amount, billingCycle,
-                    status, startedAt, expiresAt);
-        }
-    }
-
-    // Getters and Setters
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public UUID getVendorId() {
-        return vendorId;
-    }
-
-    public void setVendorId(UUID vendorId) {
-        this.vendorId = vendorId;
-    }
-
-    public String getPlan() {
-        return plan;
-    }
-
-    public void setPlan(String plan) {
-        this.plan = plan;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public String getBillingCycle() {
-        return billingCycle;
-    }
-
-    public void setBillingCycle(String billingCycle) {
-        this.billingCycle = billingCycle;
-    }
-
-    public SubscriptionStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(SubscriptionStatus status) {
-        this.status = status;
-    }
-
-    public Instant getStartedAt() {
-        return startedAt;
-    }
-
-    public void setStartedAt(Instant startedAt) {
-        this.startedAt = startedAt;
-    }
-
-    public Instant getExpiresAt() {
-        return expiresAt;
-    }
-
-    public void setExpiresAt(Instant expiresAt) {
-        this.expiresAt = expiresAt;
-    }
 }

@@ -1,34 +1,39 @@
 package com.gaslink.api.modules.subscription.dto;
-import jakarta.validation.constraints.*;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "Request body for initiating subscription payment")
 public class CreateSubscriptionRequest {
-    @NotBlank private String plan;
-    @NotBlank private String billingCycle;
-    @NotBlank private String paystackReference;
 
-    public @NotBlank String getPlan() {
-        return plan;
-    }
+    @NotBlank(message = "Plan is required")
+    @Schema(
+            description = "Subscription plan. BASIC = Monthly (₦5,000/month), PREMIUM = Annual (₦50,000/year)",
+            required = true,
+            allowableValues = {"BASIC", "PREMIUM"},
+            example = "BASIC"
+    )
+    private String plan;
 
-    public void setPlan(@NotBlank String plan) {
-        this.plan = plan;
-    }
+    @Schema(
+            description = "Billing cycle (auto-determined by plan)",
+            hidden = true
+    )
+    private String billingCycle; // Not needed - determined by plan
 
-    public @NotBlank String getBillingCycle() {
-        return billingCycle;
-    }
-
-    public void setBillingCycle(@NotBlank String billingCycle) {
-        this.billingCycle = billingCycle;
-    }
-
-    public @NotBlank String getPaystackReference() {
-        return paystackReference;
-    }
-
-    public void setPaystackReference(@NotBlank String paystackReference) {
-        this.paystackReference = paystackReference;
-    }
+    @NotBlank(message = "Callback URL is required")
+    @Schema(
+            description = "Paystack callback URL (deep link for mobile app)",
+            required = true,
+            example = "gaslink://payment-success"
+    )
+    private String callbackUrl;
 }

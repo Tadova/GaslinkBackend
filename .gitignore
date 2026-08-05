@@ -1,115 +1,44 @@
-### Maven ###
-target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.properties
+# Environment files
+.env
+.env.local
+.env.*.local
 
-### IntelliJ IDEA ###
+# Application properties (local)
+**/application-dev.yml
+**/application-prod.yml
+**/application-staging.yml
+**/application-local.yml
+**/application-*.local.yml
+
+# Firebase service account (contains sensitive credentials)
+**/firebase-service-account.json
+
+# IDE files
 .idea/
-*.iws
 *.iml
-*.ipr
-out/
-
-### Eclipse / STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings/
-.springBeans
-.sts4-cache
-bin/
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-
-### VS Code ###
 .vscode/
-*.code-workspace
+.settings/
+.project
+.classpath
 
-### Java ###
+# Build files
+target/
+build/
 *.class
 *.jar
 *.war
-*.ear
-*.nar
-hs_err_pid*
-replay_pid*
 
-### Logs ###
+# Logs
 logs/
 *.log
-*.gz
-*.lck
-*.tmp
-*.swp
 
-### Secrets & Environment - NEVER COMMIT THESE ###
-.env
-.env.*
-*.pem
-*.key
-*.keystore
-*.jks
-*.p12
-*.pfx
-secrets/
-credentials/
-
-### Spring Boot Profile Configs - NEVER COMMIT THESE ###
-src/main/resources/application-dev.yml
-src/main/resources/application-dev.properties
-src/main/resources/application-prod.yml
-src/main/resources/application-prod.properties
-src/main/resources/application-local.yml
-src/main/resources/application-local.properties
-src/main/resources/application-staging.yml
-src/main/resources/application-staging.properties
-
-### Database ###
-*.db
-*.sqlite
-*.h2.db
-*.mv.db
-
-### OS ###
+# OS files
 .DS_Store
 Thumbs.db
-desktop.ini
 
-### Test Reports ###
-test-output/
-jacoco.exec
-coverage/
-
-### Uploads & Temp ###
-uploads/
-temp/
-tmp/
-*.hprof
-
-### Docker ###
-docker-compose.override.yml
-
-### KEEP THESE ###
-!src/main/
-!src/test/
-!pom.xml
-!README.md
-!Dockerfile
-!docker-compose.yml
-!.gitignore
-!src/main/resources/application.yml
-!src/main/resources/db/migration/
+# Secrets
+secrets/
+*.p12
+*.pfx
+*.key
+*.pem
