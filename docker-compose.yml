@@ -1,44 +1,76 @@
-version: '3.9'
+version: '3.8'
+
 services:
   app:
     build: .
+    container_name: gaslink-api
     ports:
       - "8080:8080"
     environment:
-      DATABASE_URL: jdbc:postgresql://db:5432/gaslink
-      DATABASE_USER: gaslink
-      DATABASE_PASS: gaslink
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_SECRET: bXktc3VwZXItc2VjcmV0LWtleS1mb3ItZ2FzbGluay1hcGktam9vbC0yMDI1
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASS: ${DATABASE_PASS}
+      JWT_SECRET: ${JWT_SECRET}
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY}
+      PAYSTACK_WEBHOOK_SECRET: ${PAYSTACK_WEBHOOK_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_API_KEY: ${TWILIO_API_KEY}
+      TWILIO_API_SECRET: ${TWILIO_API_SECRET}
+      TWILIO_APP_SID: ${TWILIO_APP_SID}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
     restart: unless-stopped
+    networks:
+      - gaslink-network
+    depends_on:
+      - postgres
+      - redis
 
-  db:
-    image: postgres:16-alpine
+  postgres:
+    image: postgres:15-alpine
+    container_name: gaslink-postgres
     environment:
-      POSTGRES_DB: gaslink
-      POSTGRES_USER: gaslink
-      POSTGRES_PASSWORD: gaslink
+      POSTGRES_DB: ${POSTGRES_DB:-gaslink_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "gaslink"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - gaslink-network
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    container_name: gaslink-redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - gaslink-network
     restart: unless-stopped
 
 volumes:
-  pgdata:
+  postgres_data:
+  redis_data:
+
+networks:
+  gaslink-network:
+    driver: bridge

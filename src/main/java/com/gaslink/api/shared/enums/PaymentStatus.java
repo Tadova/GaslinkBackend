@@ -1,2 +1,12 @@
 package com.gaslink.api.shared.enums;
-public enum PaymentStatus { UNPAID, PAID, PENDING, REFUNDED }
+
+public enum PaymentStatus {
+    INITIATED,
+    PENDING,
+    COMPLETED,
+    FAILED,
+    REFUNDED,
+    CANCELLED,
+    UNPAID,
+    PAID
+}

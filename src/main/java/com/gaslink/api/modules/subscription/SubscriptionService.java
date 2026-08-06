@@ -1,17 +1,20 @@
 package com.gaslink.api.modules.subscription;
 
+//import com.gaslink.api.exception.BusinessException;
 import com.gaslink.api.exception.BusinessException;
 import com.gaslink.api.modules.email.EmailService;
 import com.gaslink.api.modules.notification.NotificationService;
 import com.gaslink.api.modules.payment.PaystackClient;
 import com.gaslink.api.modules.payment.dto.InitiatePaymentResponse;
-import com.gaslink.api.modules.subscription.dto.CreateSubscriptionRequest;
+import com.gaslink.api.modules.subscription.dto.InitiateSubscriptionPaymentRequest;
+import com.gaslink.api.modules.subscription.dto.PaymentStatusResponse;
 import com.gaslink.api.modules.subscription.dto.SubscriptionDto;
 import com.gaslink.api.modules.user.User;
 import com.gaslink.api.modules.user.UserRepository;
 import com.gaslink.api.modules.vendor.Vendor;
 import com.gaslink.api.modules.vendor.VendorRepository;
 import com.gaslink.api.shared.enums.BillingCycle;
+import com.gaslink.api.shared.enums.PaymentStatus;
 import com.gaslink.api.shared.enums.SubscriptionPlan;
 import com.gaslink.api.shared.enums.SubscriptionStatus;
 import com.gaslink.api.shared.enums.VendorAccountStatus;
@@ -27,6 +30,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -40,13 +44,18 @@ public class SubscriptionService {
     private final EmailService emailService;
     private final NotificationService notificationService;
     private final PaystackClient paystackClient;
+    private final SubscriptionPaymentRepository paymentRepository;
 
     // Pricing
-    private static final BigDecimal BASIC_PRICE = new BigDecimal("5000.00"); // Monthly
-    private static final BigDecimal PREMIUM_PRICE = new BigDecimal("50000.00"); // Annual
+    private static final BigDecimal BASIC_PRICE = new BigDecimal("5000.00");
+    private static final BigDecimal PREMIUM_PRICE = new BigDecimal("50000.00");
 
     private static final int FREE_TRIAL_DAYS = 30;
     private static final int EXPIRY_REMINDER_DAYS = 5;
+
+    // Idempotency key cache (prevent duplicate processing)
+    private static final ConcurrentHashMap<String, Boolean> PROCESSING_PAYMENTS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, String> PAYMENT_RESULTS = new ConcurrentHashMap<>();
 
     /**
      * Get user email from vendor ID
@@ -73,14 +82,10 @@ public class SubscriptionService {
         if ("PREMIUM".equalsIgnoreCase(plan)) {
             return new SubscriptionDetails(PREMIUM_PRICE, BillingCycle.ANNUAL, 365);
         } else {
-            // BASIC plan
             return new SubscriptionDetails(BASIC_PRICE, BillingCycle.MONTHLY, 30);
         }
     }
 
-    /**
-     * Inner class for subscription details
-     */
     private static class SubscriptionDetails {
         final BigDecimal amount;
         final BillingCycle billingCycle;
@@ -92,6 +97,10 @@ public class SubscriptionService {
             this.days = days;
         }
     }
+
+    // ============================================================
+    // FREE TRIAL
+    // ============================================================
 
     /**
      * Activate free trial for newly verified vendor
@@ -147,32 +156,47 @@ public class SubscriptionService {
         return toDto(saved);
     }
 
+    // ============================================================
+    // SUBSCRIPTION PAYMENT
+    // ============================================================
+
     /**
-     * Subscribe to a plan (BASIC = Monthly, PREMIUM = Annual)
+     * Initiate subscription payment with idempotency check
      */
     @Transactional
-    public InitiatePaymentResponse initiateSubscriptionPayment(UUID vendorId, CreateSubscriptionRequest request) throws BusinessException {
+    public InitiatePaymentResponse initiateSubscriptionPayment(UUID vendorId, InitiateSubscriptionPaymentRequest request) throws BusinessException {
         Vendor vendor = vendorRepository.findById(vendorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
 
-        // Get user email
+        // Check if vendor already has an active subscription
+        if (subscriptionRepository.existsByVendorIdAndStatus(vendorId, SubscriptionStatus.ACTIVE)) {
+            throw new BusinessException("You already have an active subscription. Please wait for it to expire.");
+        }
+
+        // Check if there's a pending subscription payment
+        if (subscriptionRepository.existsByVendorIdAndStatus(vendorId, SubscriptionStatus.PENDING)) {
+            throw new BusinessException("You have a pending subscription payment. Please complete or cancel it.");
+        }
+
         String userEmail = getVendorEmail(vendorId);
         if (userEmail == null) {
             throw new BusinessException("User email not found for this vendor");
         }
 
-        // Validate vendor is verified
         if (vendor.getVerificationStatus() != com.gaslink.api.shared.enums.VerificationStatus.VERIFIED) {
             throw new BusinessException("Vendor must be verified to subscribe");
         }
 
-        // Validate plan
-        if (!"BASIC".equalsIgnoreCase(request.getPlan()) && !"PREMIUM".equalsIgnoreCase(request.getPlan())) {
-            throw new BusinessException("Invalid plan. Must be 'BASIC' (Monthly) or 'PREMIUM' (Annual)");
-        }
-
-        // Get subscription details based on plan
+        // Get subscription details
         SubscriptionDetails details = getSubscriptionDetails(request.getPlan());
+
+        // Generate unique reference with timestamp to prevent duplicates
+        String reference = "SUB-" + vendorId.toString().substring(0, 8) + "-" + System.currentTimeMillis();
+
+        // Check if reference already exists (extremely rare, but just in case)
+        if (paymentRepository.existsByReference(reference)) {
+            reference = "SUB-" + vendorId.toString().substring(0, 8) + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 4);
+        }
 
         // Create pending subscription
         Subscription subscription = Subscription.builder()
@@ -187,9 +211,19 @@ public class SubscriptionService {
 
         subscriptionRepository.save(subscription);
 
-        // Initialize Paystack payment
-        String reference = "SUB-" + vendorId.toString().substring(0, 8) + "-" + System.currentTimeMillis();
+        // Create payment record
+        SubscriptionPayment payment = SubscriptionPayment.builder()
+                .subscriptionId(subscription.getId())
+                .vendorId(vendorId)
+                .amount(details.amount)
+                .reference(reference)
+                .status(PaymentStatus.INITIATED)
+                .createdAt(Instant.now())
+                .build();
 
+        paymentRepository.save(payment);
+
+        // Initialize Paystack payment
         InitiatePaymentResponse paymentResponse = paystackClient.initializeTransaction(
                 userEmail,
                 details.amount,
@@ -197,45 +231,127 @@ public class SubscriptionService {
                 request.getCallbackUrl()
         );
 
-        String cycleText = details.billingCycle == BillingCycle.ANNUAL ? "Annual" : "Monthly";
-        log.info("💳 Subscription payment initiated for vendor: {} - Plan: {} ({}) - Amount: ₦{}",
-                vendorId, request.getPlan(), cycleText, details.amount);
+        // Update payment with Paystack reference
+        payment.setGatewayReference(paymentResponse.getReference());
+        paymentRepository.save(payment);
+
+        log.info("💳 Subscription payment initiated for vendor: {} - Plan: {} - Reference: {}",
+                vendorId, request.getPlan(), reference);
 
         return paymentResponse;
     }
 
     /**
-     * Confirm subscription payment and activate subscription
+     * Verify subscription payment with duplicate prevention
      */
     @Transactional
-    public SubscriptionDto confirmSubscriptionPayment(String reference) throws BusinessException {
-        // Verify payment with Paystack
-        boolean verified = paystackClient.verifyTransaction(reference);
+    public SubscriptionDto verifySubscriptionPayment(String reference) throws BusinessException {
+        // Check if this reference is already being processed
+        if (PROCESSING_PAYMENTS.putIfAbsent(reference, Boolean.TRUE) != null) {
+            log.warn("⚠️ Payment already being processed for reference: {}", reference);
 
-        if (!verified) {
-            throw new BusinessException("Payment verification failed");
+            // Check if result is cached
+            String cachedResult = PAYMENT_RESULTS.get(reference);
+            if (cachedResult != null) {
+                log.info("✅ Returning cached result for reference: {}", reference);
+                SubscriptionPayment payment = paymentRepository.findByReference(reference)
+                        .orElseThrow(() -> new BusinessException("Payment record not found"));
+                Subscription subscription = subscriptionRepository.findById(payment.getSubscriptionId())
+                        .orElseThrow(() -> new BusinessException("Subscription not found"));
+                return toDto(subscription);
+            }
+
+            throw new BusinessException("Payment is being processed. Please wait.");
         }
 
-        // Find the pending subscription
-        Subscription pendingSubscription = subscriptionRepository.findAll().stream()
-                .filter(s -> s.getStatus() == SubscriptionStatus.PENDING)
-                .findFirst()
-                .orElseThrow(() -> new BusinessException("No pending subscription found"));
+        try {
+            // Verify with Paystack
+            boolean verified = paystackClient.verifyTransaction(reference);
 
-        // Activate the subscription
-        return activateSubscription(pendingSubscription);
+            // Find payment record
+            SubscriptionPayment payment = paymentRepository.findByReference(reference)
+                    .orElseThrow(() -> new BusinessException("Payment record not found"));
+
+            // Check if payment was already processed
+            if (payment.getStatus() == PaymentStatus.COMPLETED) {
+                log.info("✅ Payment already completed for reference: {}", reference);
+                PAYMENT_RESULTS.put(reference, "COMPLETED");
+                Subscription subscription = subscriptionRepository.findById(payment.getSubscriptionId())
+                        .orElseThrow(() -> new BusinessException("Subscription not found"));
+                return toDto(subscription);
+            }
+
+            if (payment.getStatus() == PaymentStatus.FAILED) {
+                log.warn("⚠️ Payment already failed for reference: {}", reference);
+                throw new BusinessException("Payment already failed. Please try again.");
+            }
+
+            if (!verified) {
+                payment.setStatus(PaymentStatus.FAILED);
+                payment.setErrorMessage("Paystack verification failed");
+                paymentRepository.save(payment);
+                PAYMENT_RESULTS.put(reference, "FAILED");
+                throw new BusinessException("Payment verification failed. Please try again.");
+            }
+
+            // Get transaction details from Paystack
+            var transactionDetails = paystackClient.getTransactionDetails(reference);
+            String transactionStatus = transactionDetails.get("status").asText();
+
+            if (!"success".equalsIgnoreCase(transactionStatus)) {
+                payment.setStatus(PaymentStatus.FAILED);
+                payment.setErrorMessage("Transaction status: " + transactionStatus);
+                paymentRepository.save(payment);
+                PAYMENT_RESULTS.put(reference, "FAILED");
+                throw new BusinessException("Transaction was not successful. Status: " + transactionStatus);
+            }
+
+            // Find the pending subscription
+            Subscription subscription = subscriptionRepository.findById(payment.getSubscriptionId())
+                    .orElseThrow(() -> new BusinessException("Subscription not found"));
+
+            // Double-check subscription is still pending
+            if (subscription.getStatus() != SubscriptionStatus.PENDING) {
+                log.warn("⚠️ Subscription {} is not pending. Current status: {}", subscription.getId(), subscription.getStatus());
+                PAYMENT_RESULTS.put(reference, subscription.getStatus().name());
+                return toDto(subscription);
+            }
+
+            // Activate the subscription
+            SubscriptionDto activated = activateSubscription(subscription, payment);
+
+            // Update payment status
+            payment.setStatus(PaymentStatus.COMPLETED);
+            payment.setPaidAt(Instant.now());
+            payment.setGatewayReference(reference);
+            paymentRepository.save(payment);
+
+            // Cache the result
+            PAYMENT_RESULTS.put(reference, "COMPLETED");
+
+            log.info("✅ Subscription payment verified and activated for reference: {}", reference);
+
+            return activated;
+
+        } catch (Exception | BusinessException e) {
+            log.error("❌ Error verifying payment for reference: {}", reference, e);
+            PAYMENT_RESULTS.put(reference, "FAILED");
+            throw e;
+        } finally {
+            // Remove from processing cache
+            PROCESSING_PAYMENTS.remove(reference);
+        }
     }
 
     /**
      * Activate subscription after successful payment
      */
     @Transactional
-    public SubscriptionDto activateSubscription(Subscription pendingSubscription) {
+    public SubscriptionDto activateSubscription(Subscription pendingSubscription, SubscriptionPayment payment) {
         UUID vendorId = pendingSubscription.getVendorId();
         Vendor vendor = vendorRepository.findById(vendorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
 
-        // Get days based on plan
         int days = pendingSubscription.getPlan() == SubscriptionPlan.PREMIUM ? 365 : 30;
 
         Instant now = Instant.now();
@@ -258,7 +374,7 @@ public class SubscriptionService {
                 vendorId, pendingSubscription.getPlan(), cycleText, pendingSubscription.getAmount());
 
         // Send confirmation email
-        sendSubscriptionConfirmationEmail(vendorId, activated);
+        sendSubscriptionConfirmationEmail(vendorId, activated, payment);
 
         // Send push notification
         String planName = pendingSubscription.getPlan().name();
@@ -268,6 +384,32 @@ public class SubscriptionService {
 
         return toDto(activated);
     }
+
+    /**
+     * Check payment status
+     */
+    public PaymentStatusResponse getPaymentStatus(String reference) throws BusinessException {
+        SubscriptionPayment payment = paymentRepository.findByReference(reference)
+                .orElseThrow(() -> new BusinessException("Payment record not found"));
+
+        PaymentStatusResponse response = PaymentStatusResponse.builder()
+                .success(payment.getStatus() == PaymentStatus.COMPLETED)
+                .status(payment.getStatus().name())
+                .message(payment.getErrorMessage())
+                .build();
+
+        if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            Subscription subscription = subscriptionRepository.findById(payment.getSubscriptionId())
+                    .orElse(null);
+            response.setSubscription(subscription != null ? toDto(subscription) : null);
+        }
+
+        return response;
+    }
+
+    // ============================================================
+    // SUBSCRIPTION QUERIES
+    // ============================================================
 
     /**
      * Get current subscription for vendor
@@ -296,8 +438,13 @@ public class SubscriptionService {
                 .collect(Collectors.toList());
     }
 
-    // ========== SCHEDULED JOBS ==========
+    // ============================================================
+    // SCHEDULED JOBS
+    // ============================================================
 
+    /**
+     * Check for expiring subscriptions (runs daily at 9:00 AM)
+     */
     @Scheduled(cron = "0 0 9 * * *")
     @Transactional
     public void checkExpiringSubscriptions() {
@@ -316,6 +463,9 @@ public class SubscriptionService {
         log.info("✅ Expiring subscriptions check completed. Found {} expiring soon", expiringSoon.size());
     }
 
+    /**
+     * Expire subscriptions (runs daily at midnight)
+     */
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void expireSubscriptions() {
@@ -338,6 +488,9 @@ public class SubscriptionService {
         log.info("✅ Expired {} subscriptions", expiredSubscriptions.size());
     }
 
+    /**
+     * Expire a single subscription
+     */
     @Transactional
     public void expireSubscription(Subscription subscription) {
         subscription.setStatus(SubscriptionStatus.EXPIRED);
@@ -362,8 +515,24 @@ public class SubscriptionService {
         }
     }
 
-    // ========== EMAIL NOTIFICATIONS ==========
+    // ============================================================
+    // EMAIL NOTIFICATIONS
+    // ============================================================
 
+    /**
+     * Send push notification to vendor
+     */
+    private void sendSubscriptionNotification(UUID vendorId, String title, String body) {
+        try {
+            notificationService.notify(vendorId, "SUBSCRIPTION", title, body);
+        } catch (Exception e) {
+            log.error("Failed to send push notification to vendor {}: {}", vendorId, e.getMessage());
+        }
+    }
+
+    /**
+     * Send free trial activation email
+     */
     private void sendFreeTrialEmail(UUID vendorId, Instant expiresAt) {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) return;
@@ -410,7 +579,10 @@ public class SubscriptionService {
         }
     }
 
-    private void sendSubscriptionConfirmationEmail(UUID vendorId, Subscription subscription) {
+    /**
+     * Send subscription confirmation email
+     */
+    private void sendSubscriptionConfirmationEmail(UUID vendorId, Subscription subscription, SubscriptionPayment payment) {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) return;
 
@@ -425,18 +597,20 @@ public class SubscriptionService {
         String cycleText = subscription.getBillingCycle() == BillingCycle.ANNUAL ? "Annual" : "Monthly";
         String duration = subscription.getBillingCycle() == BillingCycle.ANNUAL ? "1 year" : "1 month";
 
-        String subject = "✅ Subscription Confirmed - GasLink";
+        String subject = "✅ Subscription Payment Confirmed - GasLink";
         String content = String.format("""
             <html>
             <body>
-                <h2>Subscription Activated Successfully!</h2>
+                <h2>Payment Confirmed!</h2>
                 <p>Dear %s,</p>
-                <p>Your <strong>%s</strong> subscription has been activated.</p>
+                <p>Your <strong>%s</strong> subscription payment has been confirmed.</p>
+                <p><strong>Payment Reference:</strong> %s</p>
                 <p><strong>Plan:</strong> %s</p>
                 <p><strong>Billing Cycle:</strong> %s</p>
                 <p><strong>Amount:</strong> ₦%s</p>
                 <p><strong>Valid for:</strong> %s</p>
                 <p><strong>Expires on:</strong> %s</p>
+                <p>Your account is now active and visible to customers!</p>
                 <p>Thank you for choosing GasLink!</p>
                 <p>Best regards,<br/>GasLink Team</p>
             </body>
@@ -444,6 +618,7 @@ public class SubscriptionService {
             """,
                 userName,
                 subscription.getPlan(),
+                payment.getReference(),
                 subscription.getPlan(),
                 cycleText,
                 subscription.getAmount(),
@@ -458,6 +633,9 @@ public class SubscriptionService {
         }
     }
 
+    /**
+     * Send expiry reminder
+     */
     private void sendExpiryReminder(Subscription subscription) {
         UUID vendorId = subscription.getVendorId();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
@@ -479,6 +657,9 @@ public class SubscriptionService {
         }
     }
 
+    /**
+     * Send expiry reminder email
+     */
     private void sendExpiryReminderEmail(UUID vendorId, Subscription subscription) {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) return;
@@ -525,6 +706,9 @@ public class SubscriptionService {
         }
     }
 
+    /**
+     * Send subscription expired email
+     */
     private void sendSubscriptionExpiredEmail(UUID vendorId) {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) return;
@@ -566,14 +750,13 @@ public class SubscriptionService {
         }
     }
 
-    private void sendSubscriptionNotification(UUID vendorId, String title, String body) {
-        try {
-            notificationService.notify(vendorId, "SUBSCRIPTION", title, body);
-        } catch (Exception e) {
-            log.error("Failed to send push notification to vendor {}: {}", vendorId, e.getMessage());
-        }
-    }
+    // ============================================================
+    // DTO MAPPING
+    // ============================================================
 
+    /**
+     * Convert Subscription entity to DTO
+     */
     private SubscriptionDto toDto(Subscription s) {
         if (s == null) return null;
 
