@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: gaslink-api
+    runtime: docker
+    repo: https://github.com/Tadova/GaslinkBackend
+    branch: main
+    plan: free
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gaslink-db
+          property: connectionString
+      - key: DATABASE_USER
+        fromDatabase:
+          name: gaslink-db
+          property: user
+      - key: DATABASE_PASS
+        fromDatabase:
+          name: gaslink-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_WEBHOOK_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+
+databases:
+  - name: gaslink-db
+    plan: free
+    databaseName: gaslink_dev
+    user: postgres
