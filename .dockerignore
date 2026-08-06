@@ -1,7 +1,7 @@
 .git
 .gitignore
-.mvn
-.mvn/wrapper/maven-wrapper.jar
+# REMOVE .mvn from here
+# .mvn
 target/
 *.class
 *.log
@@ -15,7 +15,6 @@ docker-compose.yml
 .vscode/
 *.iml
 .aws-sam/
-.vscode/
 .venv/
 .DS_Store
 Thumbs.db
