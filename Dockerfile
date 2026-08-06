@@ -1,27 +1,26 @@
-# Use Eclipse Temurin JDK 17
-FROM eclipse-temurin:17-jdk-alpine AS build
+# ============================================================
+# Build Stage
+# ============================================================
+FROM maven:3.9-eclipse-temurin-17-alpine AS build
 
 # Set working directory
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml
-COPY mvnw .
-COPY .mvn .mvn
+# Copy pom.xml first for dependency caching
 COPY pom.xml .
 
 # Download dependencies
-RUN ./mvnw dependency:go-offline -B
+RUN mvn dependency:go-offline -B
 
 # Copy source code
 COPY src src
 
 # Build the application
-RUN ./mvnw clean package -DskipTests
+RUN mvn clean package -DskipTests
 
 # ============================================================
-# Production Stage
+# Runtime Stage
 # ============================================================
-
 FROM eclipse-temurin:17-jre-alpine
 
 # Install curl for health checks
