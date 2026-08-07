@@ -38,7 +38,7 @@ public class OpenAPIConfig {
                                 .url("http://localhost:8080")
                                 .description("Development Server"),
                         new Server()
-                                .url("https://api.gaslink.com")
+                                .url("https://gaslinkbackend-1.onrender.com")
                                 .description("Production Server")
                 ))
 //                .tags(List.of(
